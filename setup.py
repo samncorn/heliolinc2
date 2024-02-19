@@ -1,9 +1,14 @@
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
 import os
+from sys import platform
 
-os.environ['CC'] = 'gcc'
-os.environ["CXX"] = "g++"
+if platform == 'darwin':
+    os.environ['CC'] = 'gcc-13'
+    os.environ["CXX"] = "g++-13"
+elif platform == 'linux':
+    os.environ['CC'] = 'gcc'
+    os.environ["CXX"] = "g++"
 
 __version__ = "0.0.1"
 
