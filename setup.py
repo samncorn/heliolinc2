@@ -2,8 +2,8 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
 import os
 
-os.environ['CC'] = 'g++-13'
-os.environ["CXX"] = "g++-13"
+os.environ['CC'] = 'gcc'
+os.environ["CXX"] = "g++"
 
 __version__ = "0.0.1"
 
