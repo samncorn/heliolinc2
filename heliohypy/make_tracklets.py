@@ -49,6 +49,20 @@ def make_tracklets():
 
     args = parser.parse_args()
 
+    # setup tracklet config
+    conf = hl.MakeTrackletsConfig()
+    conf.mintrkpts  = args.mintrkpts
+    # conf.imagetimetol # use default
+    conf.maxvel     = args.maxvel
+    conf.minvel     = args.minvel
+    conf.minarc     = args.minarc
+    conf.maxtime    = args.maxtime
+    conf.mintime    = args.mintime
+    conf.imagerad   = args.imrad
+    conf.maxgcr     = args.maxGCR
+    # conf.forecerun
+    # conf.verbose    = False
+
     # config = tomllib.load( args['config'] )
 
     # keys mapping comman line args to equivalent config fields
@@ -90,7 +104,7 @@ def make_tracklets():
     opsim[ 'obscode' ] = args.observatory
 
     logging.info( ' Loading detections file' )
-    detections = pd.read_csv( 
+    all_detections = pd.read_csv( 
         args.dets,
         usecols=[ 
             'ObjID', 
@@ -102,22 +116,10 @@ def make_tracklets():
             by='FieldID', 
             ignore_index=True 
             )
-    fieldIds = detections[ 'FieldID' ].unique()
+    fieldIds = all_detections[ 'FieldID' ].unique()
     opsim = opsim[ opsim['FieldID'].isin(fieldIds) ]
 
-    detections = detections.merge( opsim, how='left', on='FieldID' )
-
-    logging.info( ' converting inputs to structured arrays ...' )
-    hl_detections = utils.format_detections(
-        detections['start_MJD'],
-        detections['AstRA(deg)'],
-        detections['AstDec(deg)'],
-        0, # magnitude, optional
-        detections['ObjID'],
-        detections['index'],
-        detections['filter'],
-        detections['obscode']
-    )
+    all_detections = all_detections.merge( opsim, how='left', on='FieldID' )
 
     images = utils.format_images( 
         opsim[ 'start_MJD' ],
@@ -126,56 +128,20 @@ def make_tracklets():
         obscodes[ args.observatory ],
         earthpos
         )
-
-    conf = hl.MakeTrackletsConfig()
-    conf.mintrkpts  = args.mintrkpts
-    # conf.imagetimetol # use default
-    conf.maxvel     = args.maxvel
-    conf.minvel     = args.minvel
-    conf.minarc     = args.minarc
-    conf.maxtime    = args.maxtime
-    conf.mintime    = args.mintime
-    conf.imagerad   = args.imrad
-    conf.maxgcr     = args.maxGCR
-    # conf.forecerun
-    # conf.verbose    = False
-
-    logging.info( ' generating tracklets ...' )
-    # generate tracklets, pairs
-    # with hl.ostream_redirect(stdout=True, stderr=True): # necessary? needed it for notebooks, not sure here
-    paired_dets, tracklets, trk2det = hl.makeTracklets( conf, hl_detections, images )
-
-    # store (everything) in hdf5 file
+    
+        # store (everything) in hdf5 file
     # then heliolinc can operate on just the hdf5 file ( or subsets of it )
     if args.outfile is None:
         out_file_name = os.path.basename(args.dets).split( '.' )[0] + '.h5'
     else:
         out_file_name = args.outfile + '.h5'
 
-    # print( f' ... writing to {out_file_name}' )
-    logging.info( f' writing to {out_file_name}' )
+    logging.info( ' converting inputs to structured arrays ...' )
+    nights = opsim['night'].unique()
+
     with h5py.File( out_file_name, 'w' ) as file:
-        dets_h5 = file.create_dataset( 
-            'detections',
-            (len(paired_dets),),
-            dtype=paired_dets.dtype,
-            )
-        dets_h5[()] = paired_dets
-
-        trks_h5 = file.create_dataset(
-            'tracklets',
-            (len(tracklets),),
-            dtype=tracklets.dtype,
-        )
-        trks_h5 = tracklets
-
-        trk2det_h5 = file.create_dataset(
-            'trk2det',
-            (len(trk2det),),
-            dtype=trk2det.dtype,
-        )
-        trk2det_h5 = trk2det
-
+        logging.info( f' writing to {out_file_name}' )
+        # write images and earthpos to file
         images_h5 = file.create_dataset(
             'images',
             (len(images),),
@@ -189,3 +155,47 @@ def make_tracklets():
             dtype=earthpos.dtype,
             )
         earthpos_h5[()] = earthpos
+
+        # generate tracklets for each night
+        for night in nights:
+            detections = all_detections[ all_detections['night']==night ]
+
+            night_start = np.trunc(all_detections[ 'start_MJD' ].min())
+            # nigh_end    = all_detections[ 'start_MJD' ].mmaximum()
+
+            night_group = file.create_group( str(night)+'_'+str(night_start) )
+
+            hl_detections = utils.format_detections(
+                detections['start_MJD'],
+                detections['AstRA(deg)'],
+                detections['AstDec(deg)'],
+                0, # magnitude, optional
+                detections['ObjID'],
+                detections['index'],
+                detections['filter'],
+                detections['obscode']
+            )
+            # generate tracklets, pairs
+            # with hl.ostream_redirect(stdout=True, stderr=True): # necessary? needed it for notebooks, not sure here
+            paired_dets, tracklets, trk2det = hl.makeTracklets( conf, hl_detections, images )
+
+            dets_h5 = night_group.create_dataset( 
+                'detections',
+                (len(paired_dets),),
+                dtype=paired_dets.dtype,
+                )
+            dets_h5[()] = paired_dets
+
+            trks_h5 = night_group.create_dataset(
+                'tracklets',
+                (len(tracklets),),
+                dtype=tracklets.dtype,
+            )
+            trks_h5[()] = tracklets
+
+            trk2det_h5 = night_group.create_dataset(
+                'trk2det',
+                (len(trk2det),),
+                dtype=trk2det.dtype,
+            )
+            trk2det_h5[()] = trk2det
