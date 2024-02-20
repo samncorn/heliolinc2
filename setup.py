@@ -9,9 +9,12 @@ if platform == 'darwin':
     print( 'you may need to manually edit setup.py' )
     os.environ['CC'] = 'gcc-13'
     os.environ["CXX"] = "g++-13"
+
+    extra_link_args=["-undefined", "dynamic_lookup", "-fopenmp"],
 elif platform == 'linux':
     os.environ['CC'] = 'gcc'
     os.environ["CXX"] = "g++"
+    extra_link_args=["-fopenmp"],
 
 __version__ = "0.0.1"
 
@@ -21,7 +24,7 @@ ext_modules = [
         ["heliohypy/heliohypy.cpp", "src/solarsyst_dyn_geo01.cpp"],
         define_macros=[("VERSION_INFO", __version__)],
         # extra_compile_args=["-O3", "-Wall", "-shared", ],
-        extra_link_args=["-undefined", "dynamic_lookup", "-fopenmp"],
+        extra_link_args=extra_link_args,
     )
 ]
 
