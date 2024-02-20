@@ -16,8 +16,8 @@ import sqlite3 as sql
 import h5py
 
 # from heliolinc_utils import load_opsim
-from heliohypy import heliohypy as hl
-from heliohypy import solarsyst_dyn_geo as hl_utils
+import heliohypy as hl
+import utils
 
 logging.basicConfig( level=logging.INFO )
 
@@ -68,13 +68,13 @@ args = parser.parse_args()
 
 # if arg not passed, check the config file
 logging.info( ' Loading Earth ephemeris file ...' )
-earthpos = hl_utils.load_earth_ephemerides( args.earthpos )
+earthpos = utils.load_earth_ephemerides( args.earthpos )
 
 logging.info( ' Loading mpc observatory records ...' )
-obscodes = hl_utils.load_obscodes( args.obscodes )
+obscodes = utils.load_obscodes( args.obscodes )
 
 logging.info( ' Loading LSST operations simulator database ...' )
-opsim = hl_utils.load_opsim( args.imgs, 
+opsim = utils.load_opsim( args.imgs, 
                    columns=[
                        'observationId',
                        'fieldRA',
@@ -107,9 +107,8 @@ opsim = opsim[ opsim['FieldID'].isin(fieldIds) ]
 
 detections = detections.merge( opsim, how='left', on='FieldID' )
 
-for night in 
 logging.info( ' converting inputs to structured arrays ...' )
-hl_detections = hl_utils.format_detections(
+hl_detections = utils.format_detections(
     detections['start_MJD'],
     detections['AstRA(deg)'],
     detections['AstDec(deg)'],
@@ -120,7 +119,7 @@ hl_detections = hl_utils.format_detections(
     detections['obscode']
 )
 
-images = hl_utils.format_images( 
+images = utils.format_images( 
     opsim[ 'start_MJD' ],
     opsim[ 'fieldRA' ],
     opsim[ 'fieldDec' ],

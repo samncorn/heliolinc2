@@ -4,6 +4,9 @@ import os
 from sys import platform
 
 if platform == 'darwin':
+    print( 'Apple user detected ' )
+    print( 'current build system requires gcc be installed (not the default wrapper to clang) in order to support the -fopenmp flag' )
+    print( 'you may need to manually edit setup.py' )
     os.environ['CC'] = 'gcc-13'
     os.environ["CXX"] = "g++-13"
 elif platform == 'linux':
@@ -34,4 +37,9 @@ setup(
     cxx_std=17,
     zip_safe=False,
     python_requires=">=3.11",
+    entry_points={
+        'console_scripts': [
+            'make_tracklets_py = heliohypy:make_tracklets',
+        ]
+    }
 )
