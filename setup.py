@@ -14,7 +14,7 @@ if platform == 'darwin':
 elif platform == 'linux':
     os.environ['CC'] = 'gcc'
     os.environ["CXX"] = "g++"
-    extra_link_args=["-fopenmp"],
+    extra_link_args=["-fopenmp",],
 
 __version__ = "0.0.1"
 
