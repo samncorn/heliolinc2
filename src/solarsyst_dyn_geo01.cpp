@@ -5357,9 +5357,9 @@ int observer_baryvel01(double detmjd, int polyorder, double lon, double obscos, 
   outvel.y = vel_from_barycen.y + vel_from_geocen.y;
   outvel.z = vel_from_barycen.z + vel_from_geocen.z;
  
-  cout << "spinvel: " << vel_from_geocen.x << " " << vel_from_geocen.y << " " << vel_from_geocen.z << "\n";
-  cout << "orbvel: " << vel_from_barycen.x << " " << vel_from_barycen.y << " " << vel_from_barycen.z << "\n";
-  cout << "total: " << outvel.x << " " << outvel.y << " " << outvel.z << "\n";
+  // cout << "spinvel: " << vel_from_geocen.x << " " << vel_from_geocen.y << " " << vel_from_geocen.z << "\n";
+  // cout << "orbvel: " << vel_from_barycen.x << " " << vel_from_barycen.y << " " << vel_from_barycen.z << "\n";
+  // cout << "total: " << outvel.x << " " << outvel.y << " " << outvel.z << "\n";
   return(0);
 }
 
@@ -18476,9 +18476,10 @@ int make_tracklets(vector <hldet> &detvec, vector <hlimage> &image_log, MakeTrac
   //  cout << "det " << i << " " << detvec[i].MJD << " " << detvec[i].RA << " " << detvec[i].Dec << " " << detvec[i].mag  << " " << detvec[i].obscode << " " << detvec[i].image << "\n";
   //}
   // Echo image log
-  for(i=0;i<long(image_log.size());i++) {
-    cout << "image " << i << " " << image_log[i].MJD << " " << image_log[i].RA << " " << image_log[i].Dec << " " << image_log[i].X << " " << image_log[i].obscode  << " " << image_log[i].startind  << " " << image_log[i].endind << "\n";
-  }
+  
+  // for(i=0;i<long(image_log.size());i++) {
+  //   cout << "image " << i << " " << image_log[i].MJD << " " << image_log[i].RA << " " << image_log[i].Dec << " " << image_log[i].X << " " << image_log[i].obscode  << " " << image_log[i].startind  << " " << image_log[i].endind << "\n";
+  // }
 
   // Create pairs, output a vector pairdets of type hldet; a vector indvecs of type vector <long>,
   // with the same length as pairdets, giving the indices of all the detections paired with a given detection;
