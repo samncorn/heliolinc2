@@ -38,7 +38,7 @@ def make_tracklets():
     parser.add_argument( '--outfile',    help='output file stem', default=None )
     # value args
     parser.add_argument( '--observatory',   default='X05',  help='which observatory images are take from',)
-    parser.add_argument( '--imrad',         default=1.75,   help='image field of view radius (degrees)',)
+    parser.add_argument( '--imrad',         default=2.2,   help='image field of view radius (degrees)',)
     parser.add_argument( '--maxtime',       default=1.5,    help='max time seperation between detections in a tracklet, hours',)
     parser.add_argument( '--mintime',       default=1/3600, help='min time seperation between detections in a tracklet, hours',)
     parser.add_argument( '--maxGCR',        default=0.5,    help='max residual for great circle fit in tracklet, arcsec',)
@@ -132,9 +132,9 @@ def make_tracklets():
         # store (everything) in hdf5 file
     # then heliolinc can operate on just the hdf5 file ( or subsets of it )
     if args.outfile is None:
-        out_file_name = os.path.basename(args.dets).split( '.' )[0] + '.h5'
+        out_file_name = os.path.basename(args.dets).split( '.' )[0] + '_tracklets' + '.h5'
     else:
-        out_file_name = args.outfile + '.h5'
+        out_file_name = args.outfile + '_tracklets' + '.h5'
 
     logging.info( ' converting inputs to structured arrays ...' )
     nights = opsim['night'].unique()
@@ -160,10 +160,16 @@ def make_tracklets():
         for night in nights:
             detections = all_detections[ all_detections['night']==night ]
 
-            night_start = np.trunc(all_detections[ 'start_MJD' ].min())
-            # nigh_end    = all_detections[ 'start_MJD' ].mmaximum()
+            images_mask = opsim['night'] == night
+            images_night = images[ images_mask ]
 
-            night_group = file.create_group( str(night)+'_'+str(night_start) )
+            start_mjd = all_detections[ 'start_MJD' ].min()
+            end_mjd    = all_detections[ 'start_MJD' ].max()
+
+            night_group = file.create_group( str(night) )
+            # attach metadata
+            night_group.attrs.create( 'start_mjd', start_mjd )
+            night_group.attrs.create( 'end_mjd', end_mjd )
 
             hl_detections = utils.format_detections(
                 detections['start_MJD'],
@@ -177,12 +183,13 @@ def make_tracklets():
             )
             # generate tracklets, pairs
             # with hl.ostream_redirect(stdout=True, stderr=True): # necessary? needed it for notebooks, not sure here
-            paired_dets, tracklets, trk2det = hl.makeTracklets( conf, hl_detections, images )
+            paired_dets, tracklets, trk2det = hl.makeTracklets( conf, hl_detections, images_night )
 
             dets_h5 = night_group.create_dataset( 
                 'detections',
                 (len(paired_dets),),
                 dtype=paired_dets.dtype,
+                compression="gzip",
                 )
             dets_h5[()] = paired_dets
 
@@ -190,6 +197,7 @@ def make_tracklets():
                 'tracklets',
                 (len(tracklets),),
                 dtype=tracklets.dtype,
+                compression="gzip",
             )
             trks_h5[()] = tracklets
 
@@ -197,5 +205,6 @@ def make_tracklets():
                 'trk2det',
                 (len(trk2det),),
                 dtype=trk2det.dtype,
+                compression="gzip",
             )
             trk2det_h5[()] = trk2det
