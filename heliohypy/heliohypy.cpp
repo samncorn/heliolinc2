@@ -391,6 +391,7 @@ std::tuple<py::array, py::array>heliolinc(
   std::vector <longpair> clust2det;
      
   status = heliolinc_alg(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
+  // status= heliolinc_alg_ompkd4(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
   if(status!=0) {
     cerr << "ERROR: heliolinc returned failure status " << status << "\n";
     auto py_clustout = vec_to_ndarray<hlclust>({});
@@ -436,6 +437,45 @@ std::tuple<py::array, py::array>linkRefineHerget(
 
   return(std::make_tuple(py_detout1, py_detout2));
 }
+
+class Heliolinc {
+public:
+    Heliolinc() {};
+    std::tuple<py::array, py::array>heliolinc(
+        HeliolincConfig config,
+        py::array_t<hlimage> py_imglog,
+        py::array_t<hldet> py_detvec,
+        py::array_t<tracklet> py_tracklets,
+        py::array_t<longpair> py_trk2det,
+        py::array_t<hlradhyp> py_radhyp,
+        py::array_t<EarthState> earthin
+      ) {
+        cout << "C++ wrapper for heliolinc\n";
+        
+        std::vector <hlimage> image_log = ndarray_to_vec(py_imglog);
+        std::vector <hldet> detvec = ndarray_to_vec(py_detvec);
+        std::vector <tracklet> tracklets = ndarray_to_vec(py_tracklets);
+        std::vector <longpair> trk2det = ndarray_to_vec(py_trk2det);
+        std::vector <hlradhyp> radhyp = ndarray_to_vec(py_radhyp);
+        std::vector <EarthState> earthpos = ndarray_to_vec(earthin);
+        int status = 0;
+        std::vector <hlclust> outclust;
+        std::vector <longpair> clust2det;
+          
+        // status = heliolinc_alg(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
+        status= heliolinc_alg_ompkd4(image_log, detvec, tracklets, trk2det, radhyp, earthpos, config, outclust, clust2det);
+        if(status!=0) {
+          cerr << "ERROR: heliolinc returned failure status " << status << "\n";
+          auto py_clustout = vec_to_ndarray<hlclust>({});
+          return(std::make_tuple(py_clustout, py_clustout));
+        }
+            
+        auto py_detout1 = vec_to_ndarray<hlclust>(outclust);
+        auto py_detout2 = vec_to_ndarray<longpair>(clust2det);
+
+        return(std::make_tuple(py_detout1, py_detout2));
+    }
+};
 
 // PYBIND11_MODULE(heliohypy, m) {
 PYBIND11_MODULE(heliohypy, m) {
@@ -502,6 +542,19 @@ PYBIND11_MODULE(heliohypy, m) {
     // Config class for Heliolinc
     py::class_<HeliolincConfig>(m, "HeliolincConfig")
       .def(py::init<>())
+      // // .def("__call__", &Add::add)
+      // .def("__getstate__", [](const HeliolincConfig &p) {
+      //     /* Return a tuple that fully encodes the state of the object */
+      //     return py::make_tuple();
+      // })
+      // .def("__setstate__", [](HeliolincConfig &p, py::tuple t) {
+      //     if (t.size() != 0)
+      //         throw std::runtime_error("Invalid state!");
+
+      //     /* Invoke the in-place constructor. Note that this is needed even
+      //     when the object just has a trivial default constructor */
+      //     new (&p) HeliolincConfig();
+      // })
       .def_readwrite("MJDref", &HeliolincConfig::MJDref)
       .def_readwrite("clustrad", &HeliolincConfig::clustrad) 
       .def_readwrite("dbscan_npt", &HeliolincConfig::dbscan_npt) 
@@ -544,9 +597,27 @@ PYBIND11_MODULE(heliohypy, m) {
     // };
 
     m.def("heliolinc", &heliolinc,  "Link input tracklets into candidate discoveries.");
+
+    py::class_<Heliolinc>(m, "Heliolinc")
+        .def(py::init<>())
+        .def("__call__", &Heliolinc::heliolinc)
+        .def("__getstate__", [](const Heliolinc &p) {
+            /* Return a tuple that fully encodes the state of the object */
+            return py::make_tuple();
+        })
+        .def("__setstate__", [](Heliolinc &p, py::tuple t) {
+            if (t.size() != 0)
+                throw std::runtime_error("Invalid state!");
+
+            /* Invoke the in-place constructor. Note that this is needed even
+            when the object just has a trivial default constructor */
+            new (&p) Heliolinc();
+        });
+
+    
     m.def("linkRefineHerget", &linkRefineHerget, "Refine linkages, eliminating duplicates and preserving the best candidates.");
 
-    // py::add_ostream_redirect( m, "ostream_redirect" );
+    py::add_ostream_redirect( m, "ostream_redirect" );
    }
 
 

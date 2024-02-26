@@ -47,6 +47,20 @@ def make_tracklets():
     parser.add_argument( '--maxvel',        default=1.5,)
     parser.add_argument( '--minarc',        default=0.0,)
 
+    # parser.add_argument( '--tf', help='mjd to stop at', type=float )
+    parser.add_argument( '--window', default=14.0 )
+
+    # heliolinc args
+    # parser.add_argument( '--clustrad',      help='clustering radius', default=200000. )
+    # parser.add_argument( '--npt', help='number of points for a linkage', default=3 )
+    # parser.add_argument( '--minobsnights', help='min number of distinct nights for a linkage', default=3 )
+    # parser.add_argument( '--mintimespan', default=1.0 )
+    # parser.add_argument( '--mingeodist', default=0.1 )
+    # parser.add_argument( '--maxgeodist', default=100.0 )
+    # parser.add_argument( '--geologstep', default=1.5 )
+
+    # parser.add_argument( '--nproc', help='number of processes', default=1 )
+
     args = parser.parse_args()
 
     # setup tracklet config
@@ -60,6 +74,8 @@ def make_tracklets():
     conf.mintime    = args.mintime
     conf.imagerad   = args.imrad
     conf.maxgcr     = args.maxGCR
+
+
     # conf.forecerun
     # conf.verbose    = False
 
@@ -119,6 +135,7 @@ def make_tracklets():
     fieldIds = all_detections[ 'FieldID' ].unique()
     opsim = opsim[ opsim['FieldID'].isin(fieldIds) ]
 
+    # merge and reset index
     all_detections = all_detections.merge( opsim, how='left', on='FieldID' )
 
     images = utils.format_images( 
@@ -141,6 +158,9 @@ def make_tracklets():
 
     with h5py.File( out_file_name, 'w' ) as file:
         logging.info( f' writing to {out_file_name}' )
+
+        top_group = file.create_group( 'nights' )
+
         # write images and earthpos to file
         images_h5 = file.create_dataset(
             'images',
@@ -156,17 +176,71 @@ def make_tracklets():
             )
         earthpos_h5[()] = earthpos
 
+        #======================================================================
+        # detections = all_detections[ all_detections['start_MJD'] <= args.tf ]
+        # detections = detections[ detections['start_MJD'] >= (args.tf - args.window) ]
+
+        # hl_detections = utils.format_detections(
+        #     detections['start_MJD'],
+        #     detections['AstRA(deg)'],
+        #     detections['AstDec(deg)'],
+        #     0, # magnitude, optional
+        #     detections['ObjID'],
+        #     detections['index'],
+        #     detections['filter'],
+        #     detections['obscode']
+        # )
+
+        # paired_dets, tracklets, trk2det = hl.makeTracklets( conf, hl_detections, images )#images_night )
+        # ref_mjd = 0.5*( paired_dets['MJD'].max() + paired_dets['MJD'].min() )
+        # hl_config = setup_config( args, ref_mjd )
+
+        # radhyp = np.empty( (2,), dtype=utils.hlradhyp )
+        # radhyp[ 'HelioRad' ] = np.array( [1.1, 1.2] )
+        # radhyp[ 'R_dot' ] = 0.0 # radhyps_table[ 'rdot(AU/day)' ]
+        # radhyp[ 'R_dubdot' ] = 0.0
+
+        # clusters = hl.heliolinc( hl_config, images, paired_dets, tracklets, trk2det, radhyp, earthpos )
+
+        # night_group = file.create_group( 'detections' )
+
+        # dets_h5 = night_group.create_dataset( 
+        #     'detections',
+        #     (len(paired_dets),),
+        #     dtype=paired_dets.dtype,
+        #     compression="gzip",
+        #     )
+        # dets_h5[()] = paired_dets
+
+        # trks_h5 = night_group.create_dataset(
+        #     'tracklets',
+        #     (len(tracklets),),
+        #     dtype=tracklets.dtype,
+        #     compression="gzip",
+        # )
+        # trks_h5[()] = tracklets
+
+        # trk2det_h5 = night_group.create_dataset(
+        #     'trk2det',
+        #     (len(trk2det),),
+        #     dtype=trk2det.dtype,
+        #     compression="gzip",
+        # )
+        # trk2det_h5[()] = trk2det
+
+        #======================================================================
         # generate tracklets for each night
         for night in nights:
             detections = all_detections[ all_detections['night']==night ]
 
-            images_mask = opsim['night'] == night
-            images_night = images[ images_mask ]
+            # images_mask = opsim['night'] == night
+            # images_night = images[ images_mask ]
+            # images_start_ind = images_night.index[0]
 
             start_mjd = all_detections[ 'start_MJD' ].min()
             end_mjd    = all_detections[ 'start_MJD' ].max()
 
-            night_group = file.create_group( str(night) )
+            night_group = top_group.create_group( str(night) )
             # attach metadata
             night_group.attrs.create( 'start_mjd', start_mjd )
             night_group.attrs.create( 'end_mjd', end_mjd )
@@ -181,9 +255,17 @@ def make_tracklets():
                 detections['filter'],
                 detections['obscode']
             )
+
+            # what index is returned?
+            # hl_detections['index'] = detections.index
+
+
             # generate tracklets, pairs
             # with hl.ostream_redirect(stdout=True, stderr=True): # necessary? needed it for notebooks, not sure here
-            paired_dets, tracklets, trk2det = hl.makeTracklets( conf, hl_detections, images_night )
+            paired_dets, tracklets, trk2det = hl.makeTracklets( conf, hl_detections, images )#images_night )
+            print ( paired_dets[:100] )
+            # tracklets['Img1'] += images_start_ind
+            # tracklets['Img2'] += images_start_ind
 
             dets_h5 = night_group.create_dataset( 
                 'detections',
@@ -208,3 +290,16 @@ def make_tracklets():
                 compression="gzip",
             )
             trk2det_h5[()] = trk2det
+
+# def setup_config( args, mjd_ref ):
+#     hl_config = hl.HeliolincConfig()
+#     hl_config.clustrad = args.clustrad
+#     hl_config.dbscan_npt = args.npt
+#     hl_config.minobsnights = args.minobsnights
+#     hl_config.mintimespan = args.mintimespan
+#     hl_config.mingeodist = args.mingeodist
+#     hl_config.maxgeodist = args.maxgeodist
+#     hl_config.geologstep = args.geologstep
+#     hl_config.MJDref = mjd_ref
+
+#     return hl_config
