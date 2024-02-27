@@ -43,6 +43,7 @@ setup(
     entry_points={
         'console_scripts': [
             'make_tracklets_py = heliohypy:make_tracklets',
+            'heliolinc_py = heliohypy:heliolinc',
         ]
     }
 )
