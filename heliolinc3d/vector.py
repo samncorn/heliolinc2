@@ -285,3 +285,12 @@ def sphereLineIntercept(l, o, r):
             x_intercept[i, :] = o[i, :]+d*ln[i, :]
 
     return x_intercept
+
+def sphere_line_intercept( l, o, r ):
+    ln = l / np.linalg.norm( l, axis=0 ) # normalize los
+    ol = np.sum( o*ln, axis=0 )
+    o2 = np.sum( o**2, axis=0 )
+    # discrim may be nan
+    discrim = np.sqrt( ol**2 - o2 + r**2 )
+    k = -ol + discrim
+    return o + ln * k 

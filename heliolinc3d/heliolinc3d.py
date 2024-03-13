@@ -150,11 +150,12 @@ def heliolinc3d(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame()
     obsids_night = []
     trailids_night = []
     
-    xar_add = xar.append
-    var_add = var.append
-    tar_add = tar.append
-    obsids_night_add = obsids_night.append
-    trailids_night_add = trailids_night.append
+    # sorry boss, pretty sure this is bad for readability
+    # xar_app = xar.append
+    # var_app = var.append
+    # tar_app = tar.append
+    # obsids_night_app = obsids_night.append
+    # trailids_night_app = trailids_night.append
     
     vnorm=vc.norm
     array = np.array                  
@@ -214,10 +215,10 @@ def heliolinc3d(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame()
                 if (verbose):
                     print('no arrows from observations in night ',n)
             else:
-                xar_add(xarrow_night)
-                var_add(varrow_night)
-                tar_add(tarrow_night)
-                obsids_night_add(dfo['obsId'].values[goodpairs_night])
+                xar.append(xarrow_night)
+                var.append(varrow_night)
+                tar.append(tarrow_night)
+                obsids_night.append(dfo['obsId'].values[goodpairs_night])
 
             nobsarrows=len(tar)
                 
@@ -243,15 +244,15 @@ def heliolinc3d(r, drdt, cr_obs, cr_arrows, ct_min, ct_max, dfobs=pd.DataFrame()
                 if (verbose):
                     print('no arrows from observations in night ',n)
             else:
-                xar_add(xarrow_night)
-                var_add(varrow_night)
-                tar_add(tarrow_night)
+                xar.append(xarrow_night)
+                var.append(varrow_night)
+                tar.append(tarrow_night)
                 # trail IDs are negative
                 # print('trails',len(trails_night))
                 # print('arrows',len(tarrow_night))
 #                 print(trails_night[0],trails_night[-1])
 #                 print(n,dft['trailId'].values[trails_night])
-                trailids_night_add(dft['trailId'].values[trails_night])
+                trailids_night.append(dft['trailId'].values[trails_night])
     
             ntrailarrows=len(tar)-nobsarrows
 #   Collect all arrows for propagation                                   
@@ -401,10 +402,10 @@ def observationsInCluster(pairs, trails, cluster, garbage=False):
 #     print('n_clusters',n_clusters)
 #     print('unique_arrow_labels',unique_arrow_labels)
     obs_in_cluster=[]
-    obs_in_cluster_add=obs_in_cluster.append
+    obs_in_cluster.append=obs_in_cluster.append
     
     trails_in_cluster=[]
-    trails_in_cluster_add=trails_in_cluster.append
+    trails_in_cluster.append=trails_in_cluster.append
     
     # cluster contains 
     for u in unique_arrow_labels:
@@ -417,20 +418,20 @@ def observationsInCluster(pairs, trails, cluster, garbage=False):
 #         print('obs_idx',obs_idx)
 #         print('p[obs_idx]',np.unique(p[idx[obs_idx]].flatten()))
         if obs_idx.size == 0:
-            obs_in_cluster_add(-1)
+            obs_in_cluster.append(-1)
         else:    
-            obs_in_cluster_add(np.unique(p[idx[obs_idx]].flatten()))
+            obs_in_cluster.append(np.unique(p[idx[obs_idx]].flatten()))
         
         #which trails are in this cluster
         trail_idx = np.where(idx >= lenp)[0]
 #         print('idx',idx)
 #         print('trail_idx',trail_idx)
 #         print('trails',trails)
-#         print('trails_add',np.unique(trails[idx[trail_idx]-lenp]))
+#         print('trails.append',np.unique(trails[idx[trail_idx]-lenp]))
         if trail_idx.size == 0:
-            trails_in_cluster_add(-1)
+            trails_in_cluster.append(-1)
         else:
-            trails_in_cluster_add(np.unique(trails[idx[trail_idx]-lenp]))
+            trails_in_cluster.append(np.unique(trails[idx[trail_idx]-lenp]))
         
     return obs_in_cluster, trails_in_cluster, unique_arrow_labels      
     
@@ -460,7 +461,7 @@ def observationsInCluster(pairs, trails, cluster, garbage=False):
 #     p = np.array(pairs)              
 
 #     obs_in_cluster=[]
-#     obs_in_cluster_add=obs_in_cluster.append
+#     obs_in_cluster.append=obs_in_cluster.append
     
 #     #cluster contains 
 #     for u in unique_labels:
@@ -469,7 +470,7 @@ def observationsInCluster(pairs, trails, cluster, garbage=False):
 # #         print('idx',idx)
 # #         print('p[idx]',np.unique(p[idx].flatten()))
 #         #which observations are in this cluster
-#         obs_in_cluster_add(np.unique(p[idx].flatten()))
+#         obs_in_cluster.append(np.unique(p[idx].flatten()))
         
 #     return obs_in_cluster, unique_labels     
     
@@ -598,7 +599,8 @@ def makeHeliocentricArrows(df, r, drdt, tref, cr, ct_min, ct_max,
     xyz = tr.radec2icrfu(df['RA'], df['DEC'], deg=True)
 
     # Those are the line of sight (LOS) vectors
-    los_icrf = array([xyz[0], xyz[1], xyz[2]]).T
+    # los_icrf = array([xyz[0], xyz[1], xyz[2]]).T
+    los_icrf = xyz.T
 
     # Transform LOS vectors to frame of choice
     los = tr.frameChange(los_icrf, 'icrf', 'ecliptic') 
@@ -1032,11 +1034,11 @@ def meanArrowStatesInClusters(xpvp, cluster, garbage=False, trim=25):
     n_clusters = len(unique_labels)
          
     mean_states=[]
-    mean_states_add=mean_states.append
+    mean_states.append=mean_states.append
     tmean=stats.trim_mean
     
     var_states=[]
-    var_states_add=var_states.append
+    var_states.append=var_states.append
     tvar=stats.tvar
     
     #cluster contains 
@@ -1044,9 +1046,9 @@ def meanArrowStatesInClusters(xpvp, cluster, garbage=False, trim=25):
         idx = np.where(cluster.labels_ == u)[0]
         
         # trimmed mean state in this cluster
-        mean_states_add(tmean(xpvp[idx,:], trim/100, axis=0))
+        mean_states.append(tmean(xpvp[idx,:], trim/100, axis=0))
         # trimmed variance in this cluster
-        var_states_add(tvar(xpvp[idx,:], axis=0, ddof=1))
+        var_states.append(tvar(xpvp[idx,:], axis=0, ddof=1))
     return np.array(mean_states), np.array(var_states), unique_labels  
 
 

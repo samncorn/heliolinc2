@@ -207,7 +207,7 @@ def getObserverInterpolant(tmin,tmax,origin='SSB',observer_location='I11',epheme
             if(frame == 'ecliptic'):
                 obs = observer_origin.vectors(refplane='ecliptic') 
             elif(frame == 'ICRF' or frame == 'J2000' or frame == 'earth' or frame == 'icrf'):
-                obs = observer_orignin.vectors(refplane='earth') 
+                obs = observer_origin.vectors(refplane='earth') 
             else:
                 raise Exception('Error: requested frame unknown.')
         
