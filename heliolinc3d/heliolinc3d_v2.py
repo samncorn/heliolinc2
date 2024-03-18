@@ -2,11 +2,13 @@ import numpy as np
 import numba
 import scipy.spatial as sc
 import logging
+import hdbscan
 
 from numpy import sqrt
 from numba import njit
 from spiceypy import prop2b
 from sklearn.cluster import DBSCAN, HDBSCAN
+# from hdbscan import hdbscan
 from time import time
 
 from .transforms import radec2icrfu, frameChange
@@ -117,7 +119,7 @@ def make_heliocentric_arrows( ra, dec, mjd, obs_xyz, pairs, r, drdt, mjd_ref, ma
 
     return x1[mask], v1[mask], dt1[mask], good_pairs
 
-def make_heliocentric_arrows_2( ra, dec, mjd, obs_xyz, r, drdt, mjd_ref, max_vel=0.02, max_trk_time=1.5/24 ,deg=True, GM=cn.GM, lttc=False, leafsize=16, balanced_tree=True, eps=0.0 ):
+def make_heliocentric_arrows_2( ra, dec, mjd, obs_xyz, r, drdt, mjd_ref, max_vel=0.02, max_trk_time=1.5/24 ,deg=True, GM=cn.GM, lttc=False, leafsize=16, balanced_tree=True, eps=0.0, n_iter=1 ):
     """
     max_vel         ... AU/day
     max_trk_time    ... days
@@ -140,7 +142,7 @@ def make_heliocentric_arrows_2( ra, dec, mjd, obs_xyz, r, drdt, mjd_ref, max_vel
         # return
 
     pairs = find_arrows( xyzt, cr, balanced_tree=balanced_tree, leafsize=leafsize )
-    logger.info( f' found {pairs.shape[0]} potential pairs' )
+    logger.info( f' found {pairs.shape[1]} potential pairs' )
 
     # cull arrows for reasonable behavior
     time_sep = np.abs( dt[pairs[0]] - dt[pairs[1]] )
@@ -156,6 +158,11 @@ def make_heliocentric_arrows_2( ra, dec, mjd, obs_xyz, r, drdt, mjd_ref, max_vel
     logger.debug( f' constructing arrows from pairs ...' )
     x1, v1, dt1 = arrows_from_pairs( xyzt[0:3], dt, pairs )
 
+    # recompute
+    for _ in range(n_iter): # generate propgressiviely better estimates on the angular momentum (tied closely to the d^2 r / dt^2 term)
+        L = np.cross( x1, v1, axis=0 )
+        x1, v1 = recompute_xv( L, pairs, ra, dec, mjd-mjd_ref, obs_xyz, r, drdt, GM=GM )
+
     # this should also cut the nans
     logger.debug( f' filtering tracklets on velocity...' )
     mask = np.where( np.sum(v1*v1, axis=0) <= max_vel**2 )[0]
@@ -166,7 +173,7 @@ def make_heliocentric_arrows_2( ra, dec, mjd, obs_xyz, r, drdt, mjd_ref, max_vel
     return x1[:, mask], v1[:, mask], dt1[mask], good_pairs
 
 
-def heliolinc3d( ra, dec, mjd, obs_xyz, r, drdt, max_vel=0.02, max_trk_time=2/12, cr=0.001, deg=True, min_pts=3, GM=cn.GM ):
+def heliolinc3d( ra, dec, mjd, obs_xyz, r, drdt, max_vel=0.02, max_trk_time=2/12, cr=0.001, deg=True, min_pts=3, GM=cn.GM, n_iter=1 ):
     """ generates tracklets from projected points ( since projection is cheap enough ) and searches for pairs within 
     a spatial limit given by a timespan and max velocity.
 
@@ -188,12 +195,9 @@ def heliolinc3d( ra, dec, mjd, obs_xyz, r, drdt, max_vel=0.02, max_trk_time=2/12
     # recompute r dub dot term
     logger.debug( f' x, v shapes: {x.shape}, {v.shape}' )
     
-    # more iterations?
     logger.debug( f' restimating rddot term' )
     L = np.cross( x, v, axis=0 )
     logger.debug( f' L shape: {L.shape}' )
-    x, v = recompute_xv( L, pairs, ra, dec, mjd-mjd_ref, obs_xyz, r, drdt, GM=GM )
-    L = np.cross( x, v, axis=0 )
 
     logger.debug( f' v shape: {v.shape}')
     logger.debug( f' l shape: {L.shape}')
@@ -207,7 +211,11 @@ def heliolinc3d( ra, dec, mjd, obs_xyz, r, drdt, max_vel=0.02, max_trk_time=2/12
     # not_nan_mask = ~np.isnan( np.sum(states, axis=1) ) # filter the nans
     # good_pairs = pairs[not_nan_mask]
     L_A = np.vstack([L, A]) # convert to row for each point
-    db = DBSCAN( eps=cr, min_samples=min_pts ).fit( L_A.T )
+    # db = DBSCAN( eps=cr, min_samples=min_pts ).fit( L_A.T )
+
+    # try hdbscan
+    db = hdbscan.HDBSCAN( min_samples=3, cluster_selection_epsilon=cr )
+    db.fit( L_A.T )    
     # db = HDBSCAN( min_samples=min_pts ).fit( L_E )
 
     # logger.info( 'filtering on variance of cluster mean states' )
@@ -299,7 +307,7 @@ def project_to_hypothesis( ra, dec, obs_xyz, dt, r, deg=True ):
 
     return sphere_line_intercept( los, obs_xyz, r )
 
-def arrows_from_pairs( xyz, dt, pairs ):
+def arrows_from_pairs( xyz, dt, pairs, GM=cn.GM ):
     """
     dt is time from reference epoch (may be negative)
     """
@@ -308,8 +316,10 @@ def arrows_from_pairs( xyz, dt, pairs ):
     dt1 = dt[ pairs[0] ]
     dt2 = dt[ pairs[1] ]
     dt12 = dt1 - dt2
-    # a1 = -GM / (r * dr)**3 * x1
-    a1 = 0.0
+
+    r1 = np.linalg.norm(x1, axis=0)
+    a1 = -GM/r1**3 * x1
+    # a1 = 0.0
     v1 = ( x1 - x2 ) / dt12 - 0.5*a1*dt12
 
     return x1, v1, dt1
