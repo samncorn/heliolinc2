@@ -51,7 +51,7 @@ def find_tracklets_on_sky( xyz_los, xyz_obs, t, max_ang_vel=2.0, max_trk_time=2.
     kd_r = max_ang_vel_rad*max_trk_time
     logger.info( ' building tracklet search tree ...' )
     t0 = time()
-    kd_tree = sc.cKDTree( xyzt, leafsize=16)
+    kd_tree = sc.cKDTree( xyzt, leafsize=16, )
     tf = time()
 
     logger.info( f' tracklet search tree construction time {tf-t0} s')
